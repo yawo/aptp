@@ -1,0 +1,21 @@
+[transport]
+bind_addr          = "0.0.0.0:7878"
+connect_timeout_ms = 5000
+max_frame_bytes    = 67108864
+
+[validation]
+l2_norm_max          = 1000.0
+cosine_sim_min       = -0.95
+fairness_threshold   = 0.10
+
+[adapter]
+allow_dimension_mismatch_passthrough = false
+
+[agent]
+agent_id     = ""
+model_family = "llama"
+hidden_size  = 4096
+num_layers   = 32
+num_heads    = 32
+vocab_size   = 32000
+aptp_version = 1

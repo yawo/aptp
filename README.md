@@ -9,6 +9,42 @@ the wire. Built on **Cap'n Proto RPC** + **tokio**.
 
 ---
 
+## The Problem
+
+Today's AI agents communicate the same way humans do: **serialized text**. One
+agent generates a string, pipes it to another agent's context window, and that
+agent re-encodes it into its own latent space. This works, but it is wildly
+inefficient and lossy:
+
+| Problem | Consequence |
+|---------|-------------|
+| **Text is a bottleneck** | Agents must decompress full thoughts into language tokens, losing sub-word-level nuance. The receiving agent then re-encodes from scratch. |
+| **KV-cache is discarded** | Every text-based handoff discards the sender's attention state. The receiver cannot pick up where the sender left off — it must re-derive all context. |
+| **Latent information is lost** | A model's hidden states encode intent, uncertainty, and representational geometry that text cannot express. By the time a thought is serialized to tokens, this signal is gone. |
+| **Latency overhead** | Serialize → transmit → decode → re-encode adds 100ms+ per hop for a 4096-dim vector vs. ~50µs for raw tensor transport. |
+| **No safety gates at the primitive level** | Text protocols inspect *strings* for safety. But a maliciously crafted hidden state can carry adversarial perturbations invisible to string-based filters. |
+
+**The result:** multi-agent systems today are chatrooms, not swarms. Each agent
+operates in isolation, sharing only what can be crammed into natural language.
+They cannot share internal representations, cannot collaborate on reasoning at
+the representation level, and cannot inspect each other's primitives for safety.
+
+APTP solves this by defining a **wire protocol for neural primitives** — the
+actual data structures that LLMs natively operate on, serialized without loss
+through Cap'n Proto's zero-copy binary format.
+
+### Who needs this
+
+- **Multi-agent orchestrators** (e.g., A2A implementations) that want agents to
+  share KV-cache state instead of re-prompting from scratch.
+- **Model routing layers** that dispatch inference subtasks across heterogeneous
+  models (different architectures, dimensions, or families).
+- **Agent safety infrastructure** that needs to inspect and validate
+  representations, not just text, before they reach a downstream model.
+- **Collaborative reasoning systems** where agents build on each other's latent
+  thought vectors — speculative decoding chains, ensemble verifiers,
+  multi-perspective reasoners.
+
 ## Features
 
 - **Three primitive kinds** — `HiddenState`, `KvCache`, `LatentThought`

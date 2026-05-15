@@ -1,0 +1,53 @@
+[package]
+name    = "aptp"
+version = "0.1.0"
+edition = "2021"
+description = "Agent-Primitive Transfer Protocol — zero-copy neural primitive transport"
+
+[[bin]]
+name = "aptp-server"
+path = "src/bin/aptp-server.rs"
+
+[[bin]]
+name = "aptp-client"
+path = "src/bin/aptp-client.rs"
+
+[lib]
+name = "aptp"
+path = "src/lib.rs"
+
+[dependencies]
+capnp          = "0.19"
+capnp-rpc      = "0.19"
+tokio          = { version = "1",    features = ["full"] }
+tokio-util     = { version = "0.7",  features = ["compat"] }
+futures        = "0.3"
+thiserror      = "1"
+tracing        = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bytes          = "1"
+uuid           = { version = "1",    features = ["v4"] }
+sha2           = "0.10"
+digest         = "0.10"
+serde          = { version = "1",    features = ["derive"] }
+serde_json     = "1"
+toml           = "0.8"
+anyhow         = "1"
+rustls         = { version = "0.23", optional = true }
+tokio-rustls   = { version = "0.26", optional = true }
+
+[build-dependencies]
+capnpc = "0.19"
+
+[dev-dependencies]
+criterion  = { version = "0.5", features = ["html_reports"] }
+proptest   = "1"
+tokio-test = "0.4"
+
+[features]
+default = ["tls"]
+tls     = ["dep:rustls", "dep:tokio-rustls"]
+
+[[bench]]
+name    = "serialization"
+harness = false
