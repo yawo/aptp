@@ -6,6 +6,8 @@ pub struct AptpConfig {
     pub validation: ValidationConfig,
     pub adapter: AdapterConfig,
     pub agent: AgentConfig,
+    #[serde(default)]
+    pub backend: Option<BackendConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +48,24 @@ pub struct AgentConfig {
     pub vocab_size: u32,
     pub aptp_version: u32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackendConfig {
+    /// Path to a GGUF model file.
+    pub model_path: String,
+    /// Number of layers to offload to GPU (0 = CPU only).
+    #[serde(default = "default_gpu_layers")]
+    pub n_gpu_layers: u32,
+    /// Context size (max tokens).
+    #[serde(default = "default_n_ctx")]
+    pub n_ctx: u32,
+    /// Enable embedding output (required for hidden state extraction via stock API).
+    #[serde(default)]
+    pub enable_embeddings: bool,
+}
+
+fn default_gpu_layers() -> u32 { 0 }
+fn default_n_ctx() -> u32 { 2048 }
 
 impl AptpConfig {
     pub fn from_toml_file(path: &str) -> crate::error::Result<Self> {

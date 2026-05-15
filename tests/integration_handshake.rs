@@ -21,6 +21,7 @@ fn test_config(bind_addr: &str, agent_id: &str) -> AptpConfig {
         adapter: AdapterConfig {
             allow_dimension_mismatch_passthrough: false,
         },
+        backend: None,
         agent: AgentConfig {
             agent_id: agent_id.into(),
             model_family: "llama".into(),

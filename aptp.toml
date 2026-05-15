@@ -19,3 +19,13 @@ num_layers   = 32
 num_heads    = 32
 vocab_size   = 32000
 aptp_version = 1
+
+# ── Local inference backend (optional) ──────────────────────────────────────
+# Uncomment to run a local llama.cpp model and extract primitives via APTP.
+# Requires: cargo build --features backend-llama
+#
+# [backend]
+# model_path        = "/models/llama-2-7b.Q4_K_M.gguf"
+# n_gpu_layers      = 32
+# n_ctx             = 4096
+# enable_embeddings = true

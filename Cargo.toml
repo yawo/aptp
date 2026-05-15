@@ -35,9 +35,11 @@ toml           = "0.8"
 anyhow         = "1"
 rustls         = { version = "0.23", optional = true }
 tokio-rustls   = { version = "0.26", optional = true }
+libc           = { version = "0.2",  optional = true }
 
 [build-dependencies]
 capnpc = "0.19"
+cc     = "1"
 
 [dev-dependencies]
 criterion  = { version = "0.5", features = ["html_reports"] }
@@ -45,8 +47,9 @@ proptest   = "1"
 tokio-test = "0.4"
 
 [features]
-default = ["tls"]
-tls     = ["dep:rustls", "dep:tokio-rustls"]
+default       = ["tls"]
+tls           = ["dep:rustls", "dep:tokio-rustls"]
+backend-llama = ["dep:libc"]
 
 [[bench]]
 name    = "serialization"

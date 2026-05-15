@@ -35,6 +35,9 @@ pub enum AptpError {
     #[error("Configuration error: {0}")]
     Config(String),
 
+    #[error("Backend not available: {0}")]
+    BackendNotAvailable(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
