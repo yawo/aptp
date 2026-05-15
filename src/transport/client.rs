@@ -15,11 +15,25 @@ pub struct AptpClient {
 }
 
 impl AptpClient {
+    /// Connect to the address specified in `cfg.transport.bind_addr`.
     pub async fn connect(cfg: Arc<AptpConfig>) -> Result<Self> {
+        Self::connect_to(cfg.clone(), &cfg.transport.bind_addr).await
+    }
+
+    /// Connect to a specific target address (bypasses `cfg.transport.bind_addr`).
+    ///
+    /// Useful when one agent orchestrates multiple workers on different ports:
+    ///
+    /// ```ignore
+    /// let cfg = Arc::new(AptpConfig::from_toml_file("aptp.toml")?);
+    /// let mut w1 = AptpClient::connect_to(cfg.clone(), "127.0.0.1:7879").await?;
+    /// let mut w2 = AptpClient::connect_to(cfg.clone(), "127.0.0.1:7880").await?;
+    /// ```
+    pub async fn connect_to(cfg: Arc<AptpConfig>, addr: &str) -> Result<Self> {
         use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
         use std::net::ToSocketAddrs;
 
-        let addr = cfg.transport.bind_addr.as_str().to_socket_addrs()
+        let addr = addr.to_socket_addrs()
             .map_err(|e| crate::error::AptpError::Config(format!("invalid addr: {e}")))?
             .next()
             .ok_or_else(|| crate::error::AptpError::Config("empty addr".into()))?;

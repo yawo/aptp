@@ -57,6 +57,149 @@ through Cap'n Proto's zero-copy binary format.
 
 ---
 
+## Multi-Agent Topologies
+
+APTP's wire protocol is **language-agnostic** — any agent that speaks Cap'n Proto RPC can
+connect, regardless of its host language (Rust, Python, C++, Node.js, etc.).
+The [`schemas/aptp.capnp`](./schemas/aptp.capnp) file **is** the protocol contract.
+Non-Rust agents need only implement the 4 RPC methods defined there.
+
+```
+Primitive kinds: HiddenState, KvCache, LatentThought
+RPC methods:     handshake → streamPrimitive* → negotiateAlignment? → finalize
+```
+
+### 2-Agent Peer-to-Peer
+
+Each agent runs both a server (to receive) and a client (to send). This lets two
+agents exchange primitives bidirectionally.
+
+```
+┌─────────────────────────┐          ┌─────────────────────────┐
+│  Agent A (Pi / Gemini)  │          │  Agent B (Pi / Gemini)  │
+│                         │          │                         │
+│  Server → port 7878     │◄────────►│  Server → port 7879     │
+│  Client ───────────────►│          │  Client ───────────────►│
+│  (connects to Agent B)  │          │  (connects to Agent A)  │
+└─────────────────────────┘          └─────────────────────────┘
+```
+
+**Rust setup for Agent A:**
+```rust
+use std::sync::Arc;
+use tokio::task::LocalSet;
+use aptp::config::AptpConfig;
+use aptp::transport::client::AptpClient;
+use aptp::transport::server::run_server;
+
+let cfg_a = Arc::new(AptpConfig::from_toml_file("agent_a.toml")?);
+
+// Agent A listens on port 7878
+let server = run_server(cfg_a.clone());
+
+// Agent A connects TO Agent B on port 7879
+let mut to_b = AptpClient::connect_to(cfg_a.clone(), "127.0.0.1:7879").await?;
+let session = to_b.handshake(agent_card).await?;
+
+// Both run concurrently
+tokio::join!(server, async {
+    to_b.send_primitive(packet).await?;
+    to_b.finalize().await?;
+});
+```
+
+### 3-Agent Master + Workers
+
+One orchestrator (Master) distributes work to two Workers. Each worker runs an
+APTP server; the Master creates one client per worker.
+
+```
+┌────────────────────────┐
+│        Master          │
+│  (Gemini / Opencode)   │
+│                        │
+│  Client ───────────────►  Worker 1  ←── Server on port 7879
+│  Client ───────────────►  Worker 2  ←── Server on port 7880
+└────────────────────────┘
+```
+
+**Rust setup for Master:**
+```rust
+use std::sync::Arc;
+use tokio::task::LocalSet;
+use aptp::config::AptpConfig;
+use aptp::primitives::AgentCard;
+use aptp::transport::client::AptpClient;
+
+let cfg = Arc::new(AptpConfig::from_toml_file("master.toml")?);
+let card = AgentCard::new_from_config(&cfg.agent);
+
+LocalSet::new().run_until(async {
+    // Connect to both workers
+    let mut w1 = AptpClient::connect_to(cfg.clone(), "192.168.1.10:7879").await?;
+    let mut w2 = AptpClient::connect_to(cfg.clone(), "192.168.1.11:7880").await?;
+
+    let s1 = w1.handshake(card.clone()).await?;
+    let s2 = w2.handshake(card).await?;
+
+    // Send primitives to each worker
+    w1.send_primitive(hidden_state_packet).await?;
+    w2.send_primitive(kv_cache_packet).await?;
+
+    let count1 = w1.finalize().await?;
+    let count2 = w2.finalize().await?;
+}).await;
+```
+
+**Rust setup for each Worker (e.g. `worker.toml` on port 7879):**
+```rust
+use std::sync::Arc;
+use tokio::task::LocalSet;
+use aptp::config::AptpConfig;
+use aptp::transport::server::run_server;
+
+let cfg = Arc::new(AptpConfig::from_toml_file("worker.toml")?);
+let local = LocalSet::new();
+local.run_until(run_server(cfg)).await?;
+```
+
+### From Non-Rust Agents
+
+Any language with a Cap'n Proto implementation can connect to APTP:
+
+1. Copy [`schemas/aptp.capnp`](./schemas/aptp.capnp) into your project
+2. Generate bindings: `capnp compile -o <lang> schemas/aptp.capnp`
+3. Implement the `AgentPrimitiveTransfer` RPC client interface
+4. Open a TCP connection, bootstrap Cap'n Proto RPC, call `handshake`
+
+**Python** (using `pycapnp`):
+```python
+import capnp
+import aptp_capnp
+
+client = await capnp.TwoPartyClient.create("host:port")
+aptp = client.bootstrap().cast_as(aptp_capnp.AgentPrimitiveTransfer)
+result = await aptp.handshake(card)
+print(f"Session: {result.assignedSession}")
+```
+
+**JavaScript/Node.js** (using `capnp-ts`):
+```typescript
+import { connect } from 'capnp-ts/rpc';
+import { AgentPrimitiveTransfer } from './aptp.capnp';
+
+const conn = connect({ host, port });
+const client = conn.bootstrap<AgentPrimitiveTransfer>();
+const result = await client.handshake({ card });
+console.log(`Session: ${result.assignedSession}`);
+```
+
+This means Pi agents, Gemini agents, Opencode, or any other agent runtime can
+participate in an APTP mesh — they just need a Cap'n Proto RPC implementation
+for their language.
+
+---
+
 ## Quick Start
 
 ### Dependencies
